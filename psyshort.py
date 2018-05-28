@@ -31,11 +31,9 @@ class Psyshort():
         self.conn.close()
         return (datetime.now() - self.connect_datetime)
         
-    def select(self):
-        pass
-        
-    def select_multi(self, fields=None, where=None, limit=None, order_by=None):
+    def select(self, table, fields=None, where=None, limit=None, order_by=None):
         select_start = datetime.now()
+        records = []
         with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             query = "SELECT"
             if fields:
@@ -44,7 +42,11 @@ class Psyshort():
                     query += "{0}, ".format(field)
                     
                 query += ")"
-                
+            
+            else:
+                query += " *"
+            
+            query += " FROM {table}".format(table=table)
             if where:
                 query += " WHERE {0}".format(where)
                 
@@ -62,11 +64,13 @@ class Psyshort():
                 return False
                 
             else:
-                records = []
                 for row in cur.fetchall():
                     records.append(dict(row))
                     
-        return (datetime.now() - select_start)
+        return {
+            "result": records,
+            "duration": (datetime.now() - select_start)
+            }
         
     def insert(self, table, columns, row):
         with self.conn.cursor() as cur:
