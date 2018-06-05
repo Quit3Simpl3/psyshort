@@ -1,3 +1,4 @@
+name = "psyshort"
 import psycopg2, psycopg2.extras, json
 from datetime import datetime
 from psycopg2.extensions import AsIs
@@ -25,21 +26,42 @@ class Psyshort():
                 password=self.password
                 )
             )
+        del self.password, self.username
         return datetime.now()
         
     def disconnect(self):
         self.conn.close()
         return (datetime.now() - self.connect_datetime)
         
+    def _check_select_args(self, table, fields, where, limit, order_by):
+        assert table
+        if fields:
+            assert type(fields) == list
+        
+        if where:
+            assert type(where) == str
+            
+        if limit:
+            assert type(limit) == int
+            
+        if order_by:
+            assert type(order_by) == str
+    
     def select(self, table, fields=None, where=None, limit=None, order_by=None):
+        self._check_select_args(table, fields, where, limit, order_by)
         select_start = datetime.now()
         records = []
         with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             query = "SELECT"
             if fields:
                 query += " ("
+                first = True
                 for field in fields:
-                    query += "{0}, ".format(field)
+                    if not first:
+                        query += ", "
+                    
+                    first = not first
+                    query += "{0}".format(field)
                     
                 query += ")"
             
@@ -71,7 +93,16 @@ class Psyshort():
             "result": records,
             "duration": (datetime.now() - select_start)
             }
-        
+    
+    def _check_insert_args(self, table, columns, row):
+        assert (
+            type(table) == str
+            and
+            type(columns) == list
+            and
+            type(row) == dict
+            )
+    
     def insert(self, table, columns, row):
         with self.conn.cursor() as cur:
             values = [
