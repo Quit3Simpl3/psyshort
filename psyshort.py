@@ -2,6 +2,35 @@ name = "psyshort"
 import psycopg2, psycopg2.extras, json
 from datetime import datetime
 from psycopg2.extensions import AsIs
+import logging
+
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(filename)s:%(lineno)s - %(message)s",
+    filename="/var/log/psyshort.log",
+    level=logging.DEBUG
+    )
+def log(level="d", message=None):
+    level = level.lower()
+    levels = {
+        "d": {
+            "name": "DEBUG",
+            "function": logging.debug,
+            },
+        "i": {
+            "name": "INFO",
+            "function": logging.info,
+            },
+        "w": {
+            "name": "WARNING",
+            "function": logging.warning,
+            },
+        "e": {
+            "name": "ERROR",
+            "function": logging.error,
+            },
+        }
+    levels[level]["function"](message)
+    print(levels[level]["name"], "psyshort - {msg}".format(msg=message))
 
 class Psyshort():
     def __init__(self, hostname, dbname, username, password):
@@ -105,28 +134,45 @@ class Psyshort():
     
     def insert(self, table, columns, row):
         with self.conn.cursor() as cur:
-            values = [
-                row[column] for column in columns
-                ]
+            values = []
+            for column in columns:
+                if type(row[column]) == dict:
+                    values.append(json.dumps(row[column]), default=str)
+                
+                else:
+                    values.append(row[column])
+                    
+            # values = [
+            #     row[column] for column in columns
+            #     # json.dumps(row[column]) for column in columns
+            #     ]
+            # log("d", values)
             query = "INSERT INTO {table} (%s) VALUES %s".format(table=table)
             try:
                 cur.execute(
                     cur.mogrify(
                         query,
                         (
-                            AsIs(
-                                ','.join(columns)
-                                ),
+                            AsIs(','.join(columns)),
                             tuple(values)
                             )
                         )
                     )
                 
             except psycopg2.IntegrityError as eX:
+                if "duplicate key value violates unique constraint" in str(eX):
+                    log("d", "UUID already exists: {uuid}".format(uuid=row["uuid"]))
+
                 self.conn.rollback()
                 return False
                 
+            except Exception as eX:
+                log("d", "norm_dest_number:")
+                log("d", row['norm_dest_number'])
+                raise eX
+                
             self.conn.commit()
+            log("d", "Inserted: {0}.".format(row["uuid"]))
             return True
         
     def insert_multi(self, table, columns, rows):
@@ -153,7 +199,8 @@ class Psyshort():
                     argslist=values
                     )
                 
-            except psycopg2.IntegrityError as eX:
+            except Exception as eX:
+                log("d", eX)
                 self.conn.rollback()
                 for row in rows:
                     if not self.insert(table, columns, row):
