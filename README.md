@@ -1,5 +1,5 @@
 # psyshort
-###Making psycopg2 a little simpler to use.
+### Making psycopg2 a little simpler to use.
 
 ### USAGE:
 ```python
