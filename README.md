@@ -1,6 +1,7 @@
-Making psycopg2 a little simpler to use.
+# psyshort
+###Making psycopg2 a little simpler to use.
 
-Usage:
+### USAGE:
 ```python
 from psyshort import Psyshort
 psy = Psyshort(
